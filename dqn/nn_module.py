@@ -136,12 +136,14 @@ class DQNAgent:
         rewards = torch.FloatTensor(rewards).unsqueeze(1).to(device)
         dones = torch.FloatTensor(dones).unsqueeze(1).to(device)
 
-        current_q_values = self.policy_net(states, device).gather(1, actions)
-        next_q_values = self.target_net(next_states, device).max(1, keepdim=True)[0]
-        target_q_values = rewards + self.gamma * next_q_values * (1 - dones)
+        current_q = self.policy_net(states, device).gather(1, actions)
+        with torch.no_grad():
+            next_policy_action = self.policy_net(next_states, device).argmax(dim=1) # get the best policy action
+            next_target_qvalues = self.target_net(next_states, device).gather(1, next_policy_action.unsqueeze(1))
+            target_q = rewards + self.gamma * next_target_qvalues * (1 - dones)
 
         # Loss computation
-        loss = self.criterion(current_q_values, target_q_values)
+        loss = self.criterion(current_q, target_q)
 
         self.optimizer.zero_grad()
         loss.backward()
