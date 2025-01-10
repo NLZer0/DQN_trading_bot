@@ -140,12 +140,6 @@ class DQNAgent:
         next_q_values = self.target_net(next_states, device).max(1, keepdim=True)[0]
         target_q_values = rewards + self.gamma * next_q_values * (1 - dones)
 
-        if (target_q_values != target_q_values).sum() != 0:
-            print('Nan target_q_values errors')
-            
-        if (current_q_values != current_q_values).sum() != 0:
-            print('Nan current_q_values errors')
-
         # Loss computation
         loss = self.criterion(current_q_values, target_q_values)
 
