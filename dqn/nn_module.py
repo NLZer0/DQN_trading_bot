@@ -27,7 +27,8 @@ class DQN(nn.Module):
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
         )
-        self.Q = nn.Linear(hidden_dim, output_dim)
+        self.V = nn.Linear(hidden_dim, 1)
+        self.A = nn.Linear(hidden_dim, output_dim)
         self.init_weights()
 
     def init_weights(self):
@@ -48,8 +49,10 @@ class DQN(nn.Module):
         flat = torch.stack([it[1] for it in x]).to(device)
         out, _ = self.lstm_layer(seq)
         out = torch.cat((out[:, -1], self.flatten_params_embedding(flat)), dim=1)
-        out = self.Q(self.fc(out))
-        return out
+        out = self.fc(out)
+        A = self.A(out) 
+        V = self.V(out)
+        return V + (A - A.mean(dim=1, keepdim=True))
 
 
 class Queue:
