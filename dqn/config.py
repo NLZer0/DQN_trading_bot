@@ -20,14 +20,14 @@ class Config:
     gamma: float = 0.99  # дисконтирование награды
     lr: float = 1e-3 # скорость обучения
     # epochs: int = 10  # количество эпох для обновления политики
-    device: str = 'cuda'     
+    device: str = 'cpu'     
     
     silent: bool = False
     num_episodes: int = 30
     log_interval: int = 10
     data_path: str = '/home/nikolayz/Рабочий стол/RL_research/data/sber_1h_labeled.csv'
     model_path: str = 'saved_models/qnet/model'
-    test_name: str = 'base_dqn'
+    test_name: str = 'double_dqn'
 
     max_buffer_size: int = 30_000
     batch_size: int = 1024
