@@ -6,9 +6,9 @@ class Config:
     # test_size: int = int(24*30.5)
     # step: int = int(24*30.5)
     
-    train_size: int = 1000
-    test_size: int = 100
-    step: int = 100
+    train_size: int = 732
+    test_size: int = 168
+    step: int = 168
     
     input_size: int = 8 # [open, close, high, low, position, current_profit]
     action_size: int = 3  # [купить, продать, удержать]
