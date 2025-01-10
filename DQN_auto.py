@@ -57,7 +57,7 @@ if __name__ == "__main__":
         print(f'\nTest pointer: {test_pointer}')
         env = Environment(data=actual_train_data, initial_balance=10_000, comission=config.comission)
         agent = DQNAgent(config)
-        dqut.train_dqn(agent, env, config, silent=True, use_best_model=True)
+        train_result_balance = dqut.train_dqn(agent, env, config, silent=True, use_best_model=True)
         dqut.evaluate_dqn(agent, env, actual_test_data, config, silent=False)
 
         actual_env_trade_history = env.trade_history
@@ -65,6 +65,7 @@ if __name__ == "__main__":
             it['entry_step_i'] += train_pointer
             if 'close_step_i' in it:
                 it['close_step_i'] += train_pointer
+            it['train_result_balance'] = train_result_balance
 
         trade_history += actual_env_trade_history
         train_pointer += config.step

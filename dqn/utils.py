@@ -36,6 +36,8 @@ def train_dqn(agent, env, config, silent=False, use_best_model=False):
 
             if total_reward > best_model_reward:
                 best_model_state = agent.policy_net.state_dict()
+                best_model_res_balance = result_balance
+
             if not silent:
                 print(f'\nEpisode {episode}/{config.num_episodes}')
                 print(f'\tTotal Reward: {total_reward}')
@@ -53,6 +55,8 @@ def train_dqn(agent, env, config, silent=False, use_best_model=False):
     if use_best_model:
         agent.policy_net.load_state_dict(best_model_state)
         agent.target_net.load_state_dict(best_model_state)
+
+    return best_model_res_balance
 
 
 def plot_actions(close_data, trade_history):
