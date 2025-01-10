@@ -27,7 +27,7 @@ class Config:
     log_interval: int = 10
     data_path: str = '/home/nikolayz/Рабочий стол/RL_research/data/sber_1h_labeled.csv'
     model_path: str = 'saved_models/qnet/model'
-    test_name: str = 'base_dqn'
+    test_name: str = 'double_dqn'
 
     max_buffer_size: int = 30_000
     batch_size: int = 1024
