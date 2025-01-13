@@ -55,17 +55,25 @@ class DQN(nn.Module):
         return V + (A - A.mean(dim=1, keepdim=True))
 
 
-class Queue:
+class ProbabilityQueue:
     def __init__(self, capacity):
         self.capacity = capacity
+        self.probabilities = []
         self.queue = []
         self.size = 0
+        self.min_prob = 1e-4
 
-    def enqueue(self, item):
+    def enqueue(self, item, probability=None):
+        if probability is None:
+            probability = self.min_prob
+
         if self.size == self.capacity:
             # raise OverflowError("Queue is full")
             self.dequeue()
 
+        self.probabilities.append(probability)
+        if probability != probability:
+            print('here')
         self.queue.append(item)
         self.size += 1
 
@@ -73,8 +81,9 @@ class Queue:
         if self.size == 0:
             raise IndexError("Queue is empty")
         item = self.queue.pop(0)
+        prob = self.probabilities.pop(0)
         self.size -= 1
-        return item
+        return item, prob
 
     def sample(self, batch_size):
         if self.size == 0:
@@ -82,10 +91,25 @@ class Queue:
         if batch_size > self.size:
             raise ValueError("Batch size is greater than queue size")
         
-        indices = np.random.choice(self.size, size=batch_size, replace=False)
+        probs = np.array(self.probabilities)
+        probs /= probs.sum()
+
+        indices = np.random.choice(self.size, size=batch_size, replace=False, p=probs)
         batch = [self.queue[i] for i in indices]
         return batch, indices
     
+    def get_probabilities(self, indices):
+        prob_sum = sum(self.probabilities)
+        return [self.probabilities[idx]/prob_sum for idx in indices]
+    
+    def update_probabilities(self, indices, new_probabilities):
+        if len(indices) != len(new_probabilities):
+            raise ValueError("Indices and new_probabilities must have the same length")
+        for i, index in enumerate(indices):
+            if not (0 <= index < self.size):
+                raise ValueError(f"Index {index} is out of range")
+            self.probabilities[index] = self.min_prob if new_probabilities[i] < self.min_prob else new_probabilities[i]
+     
     def __len__(self):
         return self.size
     
@@ -96,8 +120,9 @@ class DQNAgent:
         self.state_dim = config.input_size
         self.action_dim = config.action_size
         self.hidden_dim = config.hidden_size
-        self.memory = Queue(capacity=10000)
+        self.memory = ProbabilityQueue(capacity=10000)
         self.gamma = config.gamma
+        self.beta = config.beta
         self.epsilon = config.random_eps
         self.epsilon_decay = config.random_eps_scaler
         self.epsilon_min = 0.00
@@ -111,7 +136,7 @@ class DQNAgent:
         self.target_net.eval()
 
         self.optimizer = torch.optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
-        self.criterion = nn.SmoothL1Loss()
+        self.criterion = nn.SmoothL1Loss(reduction='none')
 
     def change_lr(self, lr):
         for param in self.optimizer.param_groups:
@@ -145,8 +170,25 @@ class DQNAgent:
             next_target_qvalues = self.target_net(next_states, device).gather(1, next_policy_action.unsqueeze(1))
             target_q = rewards + self.gamma * next_target_qvalues * (1 - dones)
 
+        # Update sample probs
+        td_errors = torch.abs(target_q - current_q)
+        new_probabilities = td_errors.detach().cpu().ravel().tolist()
+        self.memory.update_probabilities(indices, new_probabilities)
+
+        # Compute importance-sampling weights
+        N = len(self.memory)  # Total number of transitions in memory
+        sampling_probs = torch.FloatTensor(self.memory.get_probabilities(indices)).to(device)
+        loss_weights = (1 / (N * sampling_probs)).pow(self.beta).unsqueeze(1)
+        
+        if loss_weights.max() == 0:
+            loss_weights = 1
+        else:
+            loss_weights /= loss_weights.max() # Normalize weights to keep stability  
+
+        assert loss_weights.sum() == loss_weights.sum(), f'get nan weights, max weight is {loss_weights.max()}'
+            
         # Loss computation
-        loss = self.criterion(current_q, target_q)
+        loss = (loss_weights*self.criterion(current_q, target_q)).mean()
 
         self.optimizer.zero_grad()
         loss.backward()
