@@ -62,9 +62,9 @@ class Environment:
                     'entry_balance': entry_balance,
                     'predict_q': q_value,
                 })
-                reward += 0
-            else:
-                reward += -0.1
+            #     reward += 0.05
+            # else:
+            #     reward += -0.05
 
         elif action == 1:  # Close position
             if self.position > 0:
@@ -73,12 +73,12 @@ class Environment:
                 self.trade_history[-1]['close_step_i'] = self.current_step
                 self.trade_history[-1]['close_price'] = current_row['close']
                 self.trade_history[-1]['close_balance'] = self.balance
-                reward += 0.1
                 close_position_flag = True
-            else:
-                reward += -0.1
-        else:
-            reward -= 0.01  # Slight penalty to encourage actions
+                # reward += 0.05
+            # else:
+                # reward += -0.05
+        # else:
+            # reward -= 0.005  # Slight penalty to encourage actions
 
         if close_position_flag:
             # reward takes into account the commission
