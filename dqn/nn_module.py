@@ -58,15 +58,25 @@ class NoisyLayer(nn.Module):
         return x.sign().mul_(x.abs().sqrt_())
     
 
-# DQN Network
 class DQN(nn.Module):
     def __init__(
             self,
-            input_dim: int, 
+            input_dim: int,
             output_dim: int,
-            hidden_dim: int = 128
+            hidden_dim: int = 128,
+            num_atoms: int = 51,
+            v_min: float = -10.0,
+            v_max: float = 10.0
         ):
         super(DQN, self).__init__()
+
+        self.output_dim = output_dim
+        self.num_atoms = num_atoms
+        self.v_min = v_min
+        self.v_max = v_max
+        self.atoms = torch.linspace(v_min, v_max, num_atoms)
+        self.delta_z = (v_max - v_min) / (num_atoms - 1)
+
         self.lstm_layer = nn.LSTM(
             input_size=input_dim-2,
             hidden_size=hidden_dim,
@@ -82,8 +92,9 @@ class DQN(nn.Module):
             NoisyLayer(hidden_dim, hidden_dim),
             nn.ReLU(),
         )
-        self.V = nn.Linear(hidden_dim, 1)
-        self.A = nn.Linear(hidden_dim, output_dim)
+        self.output_layer = nn.Linear(hidden_dim, output_dim * num_atoms)
+        self.softmax = nn.Softmax(dim=1)
+
         self.init_weights()
 
     def init_weights(self):
@@ -100,14 +111,22 @@ class DQN(nn.Module):
                         nn.init.zeros_(param)
 
     def forward(self, x, device):
-        seq = torch.stack([it[0] for it in x]).to(device)
-        flat = torch.stack([it[1] for it in x]).to(device)
+        seq = [it[0] for it in x]
+        flat = [it[1] for it in x]
+        seq = torch.stack(seq).to(device)
+        flat = torch.stack(flat).to(device)
+
         out, _ = self.lstm_layer(seq)
         out = torch.cat((out[:, -1], self.flatten_params_embedding(flat)), dim=1)
         out = self.fc(out)
-        A = self.A(out) 
-        V = self.V(out)
-        return V + (A - A.mean(dim=1, keepdim=True))
+        out = self.output_layer(out)
+        out = out.view(-1, self.output_dim, self.num_atoms)
+        return self.softmax(out)
+
+    def get_action(self, state, device):
+        dist = self.forward(state, device)
+        q_values = torch.mean(dist * self.atoms.to(device), dim=-1)
+        return torch.argmax(q_values, dim=-1)
 
 
 class ProbabilityQueue:
@@ -167,14 +186,14 @@ class ProbabilityQueue:
      
     def __len__(self):
         return self.size
-    
 
-# DQN Agent
+
 class DQNAgent:
     def __init__(self, config):
         self.state_dim = config.input_size
         self.action_dim = config.action_size
         self.hidden_dim = config.hidden_size
+        self.num_atoms = config.num_atoms
         self.memory = ProbabilityQueue(capacity=10000)
         self.gamma = config.gamma
         self.beta = config.beta
@@ -184,14 +203,13 @@ class DQNAgent:
         self.batch_size = config.batch_size
         self.learning_rate = config.lr
 
-        self.policy_net = DQN(self.state_dim, self.action_dim, self.hidden_dim)
-        self.target_net = DQN(self.state_dim, self.action_dim, self.hidden_dim)
-        
+        self.policy_net = DQN(self.state_dim, self.action_dim, self.hidden_dim, self.num_atoms)
+        self.target_net = DQN(self.state_dim, self.action_dim, self.hidden_dim, self.num_atoms)
+
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
 
         self.optimizer = torch.optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
-        self.criterion = nn.SmoothL1Loss(reduction='none')
 
     def change_lr(self, lr):
         for param in self.optimizer.param_groups:
@@ -199,11 +217,10 @@ class DQNAgent:
 
     def act(self, state, device, evaluate: bool = False):
         if (random.random() < self.epsilon) & (not evaluate):
-            return random.randint(0, self.action_dim - 2), None
+            return random.randint(0, self.action_dim - 1), None
 
-        with torch.no_grad():
-            q_values = self.policy_net([state], device)
-        return torch.argmax(q_values).item(), torch.max(q_values).item()
+        action = self.policy_net.get_action([state], device)
+        return action, None
 
     def remember(self, state, action, reward, next_state, done):
         self.memory.enqueue((state, action, reward, next_state, done))
@@ -215,18 +232,43 @@ class DQNAgent:
         batch, indices = self.memory.sample(self.batch_size)
         states, actions, rewards, next_states, dones = zip(*batch)
 
-        actions = torch.LongTensor(actions).unsqueeze(1).to(device)
+        actions = torch.LongTensor(actions).to(device)
         rewards = torch.FloatTensor(rewards).unsqueeze(1).to(device)
         dones = torch.FloatTensor(dones).unsqueeze(1).to(device)
 
-        current_q = self.policy_net(states, device).gather(1, actions)
-        with torch.no_grad():
-            next_policy_action = self.policy_net(next_states, device).argmax(dim=1) # get the best policy action
-            next_target_qvalues = self.target_net(next_states, device).gather(1, next_policy_action.unsqueeze(1))
-            target_q = rewards + self.gamma * next_target_qvalues * (1 - dones)
+        # Get the current distribution
+        current_dist = self.policy_net(states, device)
+        actions = actions.unsqueeze(1).expand((actions.shape[0], self.num_atoms)).unsqueeze(1)
+        current_dist = current_dist.gather(1, actions).squeeze()
 
-        # Update sample probs
-        td_errors = torch.abs(target_q - current_q)
+        with torch.no_grad():
+            next_policy_action = self.policy_net.get_action(next_states, device)
+            next_policy_action = next_policy_action.unsqueeze(1).expand((next_policy_action.shape[0], self.num_atoms)).unsqueeze(1)
+            next_target_dist = self.target_net(next_states, device)
+            next_target_dist = next_target_dist.gather(1, next_policy_action).squeeze()
+
+            # Project the target distribution
+            target_atoms = rewards + self.gamma * self.policy_net.atoms * (1 - dones)
+            target_atoms = target_atoms.clamp(self.policy_net.v_min, self.policy_net.v_max)
+            b = (target_atoms - self.policy_net.v_min) / self.policy_net.delta_z
+            l = b.floor().long()
+            u = b.ceil().long()
+
+            offset = torch.linspace(0, (self.batch_size - 1) * self.policy_net.num_atoms, self.batch_size).long().unsqueeze(1).expand(self.batch_size, self.policy_net.num_atoms).to(device)
+
+            target_dist = torch.zeros(next_target_dist.size()).to(device)
+            target_dist.view(-1).index_add_(0, (l + offset).view(-1), (next_target_dist * (u.float() - b)).view(-1))
+            target_dist.view(-1).index_add_(0, (u + offset).view(-1), (next_target_dist * (b - l.float())).view(-1))
+
+        # Compute KL divergence loss
+        loss = -(target_dist * torch.log(current_dist + 1e-8)).mean(dim=-1).mean()
+
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        # Update sample probabilities
+        td_errors = torch.abs(target_dist - current_dist).mean(dim=-1)
         new_probabilities = td_errors.detach().cpu().ravel().tolist()
         self.memory.update_probabilities(indices, new_probabilities)
 
@@ -234,23 +276,15 @@ class DQNAgent:
         N = len(self.memory)  # Total number of transitions in memory
         sampling_probs = torch.FloatTensor(self.memory.get_probabilities(indices)).to(device)
         loss_weights = (1 / (N * sampling_probs)).pow(self.beta).unsqueeze(1)
-        
+
         if loss_weights.max() == 0:
             loss_weights = 1
         else:
-            loss_weights /= loss_weights.max() # Normalize weights to keep stability  
+            loss_weights /= loss_weights.max()  # Normalize weights to keep stability
 
         assert loss_weights.sum() == loss_weights.sum(), f'get nan weights, max weight is {loss_weights.max()}'
-            
-        # Loss computation
-        loss = (loss_weights*self.criterion(current_q, target_q)).mean()
-
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
 
     def update_target_network(self):
         self.target_net.load_state_dict(self.policy_net.state_dict())
         for param in self.target_net.parameters():
             param.requires_grad = False
-

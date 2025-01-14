@@ -13,6 +13,7 @@ class Config:
     input_size: int = 8 # [open, close, high, low, position, current_profit]
     action_size: int = 3  # [купить, продать, удержать]
     hidden_size: int = 128
+    num_atoms: int = 51
 
     ema_span = 5 # коэффициент для вычисления ema
     random_eps = 0.5 # коэффициент случайных действий
@@ -21,14 +22,14 @@ class Config:
     beta: float = 0.5
     lr: float = 1e-3 # скорость обучения
     # epochs: int = 10  # количество эпох для обновления политики
-    device: str = 'cuda'     
+    device: str = 'cpu'     
     
     silent: bool = False
     num_episodes: int = 50
     log_interval: int = 10
     data_path: str = '/home/nikolayz/Рабочий стол/RL_research/data/sber_1h_labeled.csv'
     model_path: str = 'saved_models/qnet/model'
-    test_name: str = 'rainbow_4'
+    test_name: str = 'rainbow_5'
 
     max_buffer_size: int = 30_000
     batch_size: int = 1024
