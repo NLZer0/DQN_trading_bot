@@ -69,7 +69,7 @@ if __name__ == "__main__":
                 agent.remember(state, action, reward, next_state, done)
                 state = next_state
 
-        train_result_balance = dqut.train_dqn(agent, env, config, silent=True, use_best_model=True)
+        train_result_balance, agent = dqut.train_dqn(agent, env, config, silent=False, use_best_model=True)
         dqut.evaluate_dqn(agent, env, actual_test_data, config, silent=False)
 
         actual_env_trade_history = env.trade_history

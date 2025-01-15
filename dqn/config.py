@@ -24,7 +24,7 @@ class Config:
     device: str = 'cuda'     
     
     silent: bool = False
-    num_episodes: int = 50
+    num_episodes: int = 30
     log_interval: int = 10
     data_path: str = '/home/nikolayz/Рабочий стол/RL_research/data/sber_1h_labeled.csv'
     model_path: str = 'saved_models/qnet/model'
