@@ -186,7 +186,10 @@ class DQNAgent:
 
         self.policy_net = DQN(self.state_dim, self.action_dim, self.hidden_dim)
         self.target_net = DQN(self.state_dim, self.action_dim, self.hidden_dim)
-        
+
+        self.policy_net.to(config.device).eval()
+        self.target_net.to(config.device).eval()
+
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
 
@@ -203,7 +206,7 @@ class DQNAgent:
 
         with torch.no_grad():
             q_values = self.policy_net([state], device)
-        return torch.argmax(q_values).item(), torch.max(q_values).item()
+            return torch.argmax(q_values).item(), torch.max(q_values).item()
 
     def remember(self, state, action, reward, next_state, done):
         self.memory.enqueue((state, action, reward, next_state, done))

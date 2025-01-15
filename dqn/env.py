@@ -3,11 +3,11 @@ import torch
 
 
 class Environment:
-    def __init__(self, data, initial_balance, comission=0, window_size=16):
+    def __init__(self, data, config):
         self.data = data
-        self.window_size = window_size
-        self.initial_balance = initial_balance
-        self.comission = comission
+        self.window_size = config.window_size
+        self.initial_balance = config.initial_balance
+        self.comission = config.comission
 
     def reset(self):
         self.trade_history = []

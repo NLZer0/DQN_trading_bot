@@ -33,4 +33,6 @@ class Config:
     max_buffer_size: int = 30_000
     batch_size: int = 1024
     comission: float = 0.0005
-    initial_balance: float = 10_000
+    initial_balance: float = 10_000       
+    window_size: int = 16
+    memory_capacity: int = 10_000
