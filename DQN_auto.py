@@ -55,8 +55,20 @@ if __name__ == "__main__":
     print('-'*30, '\n')
     while test_pointer < len(data):
         print(f'\nTest pointer: {test_pointer}')
-        env = Environment(data=actual_train_data, initial_balance=10_000, comission=config.comission)
+        env = Environment(data=actual_train_data, config=config)
         agent = DQNAgent(config)
+
+        while len(agent.memory) < config.memory_capacity:
+            state = env.reset()
+            total_reward = 0
+            done = False
+            while not done:
+                action, q_value = agent.act(state, config.device)
+                next_state, reward, done = env.step(action, q_value)
+
+                agent.remember(state, action, reward, next_state, done)
+                state = next_state
+        
         train_result_balance = dqut.train_dqn(agent, env, config, silent=False, use_best_model=True)
         dqut.evaluate_dqn(agent, env, actual_test_data, config, silent=False)
 

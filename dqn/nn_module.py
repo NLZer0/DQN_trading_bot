@@ -203,8 +203,8 @@ class DQNAgent:
         self.batch_size = config.batch_size
         self.learning_rate = config.lr
 
-        self.policy_net = DQN(self.state_dim, self.action_dim, self.hidden_dim, self.num_atoms)
-        self.target_net = DQN(self.state_dim, self.action_dim, self.hidden_dim, self.num_atoms)
+        self.policy_net = DQN(self.state_dim, self.action_dim, self.hidden_dim, self.num_atoms).to(config.device)
+        self.target_net = DQN(self.state_dim, self.action_dim, self.hidden_dim, self.num_atoms).to(config.device)
 
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
@@ -248,7 +248,7 @@ class DQNAgent:
             next_target_dist = next_target_dist.gather(1, next_policy_action).squeeze()
 
             # Project the target distribution
-            target_atoms = rewards + self.gamma * self.policy_net.atoms * (1 - dones)
+            target_atoms = rewards + self.gamma * self.policy_net.atoms.to(device) * (1 - dones)
             target_atoms = target_atoms.clamp(self.policy_net.v_min, self.policy_net.v_max)
             b = (target_atoms - self.policy_net.v_min) / self.policy_net.delta_z
             l = b.floor().long()

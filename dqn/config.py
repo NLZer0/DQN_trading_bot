@@ -22,7 +22,7 @@ class Config:
     beta: float = 0.5
     lr: float = 1e-3 # скорость обучения
     # epochs: int = 10  # количество эпох для обновления политики
-    device: str = 'cpu'     
+    device: str = 'cuda'     
     
     silent: bool = False
     num_episodes: int = 50
@@ -35,3 +35,5 @@ class Config:
     batch_size: int = 1024
     comission: float = 0.0005
     initial_balance: float = 10_000
+    memory_capacity: int = 10_000
+    window_size: int = 16
