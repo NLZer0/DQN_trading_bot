@@ -8,6 +8,8 @@ class Environment:
         self.window_size = config.window_size
         self.initial_balance = config.initial_balance
         self.comission = config.comission
+        self.tp = config.tp
+        self.sl = config.sl
 
     def reset(self):
         self.trade_history = []
@@ -38,9 +40,28 @@ class Environment:
             torch.FloatTensor([int(self.position > 0), current_profit]),
         ]
         return state
-
+    
     def set_data(self, data):
         self.data = data
+
+    def open_position(self, current_row, q_value):
+        entry_balance = self.balance
+        self.position = self.balance // current_row['close']
+        self.balance -= (current_row['close']*self.position) * (1 + self.comission)
+        self.entry_price = current_row['close']
+        self.trade_history.append({
+            'entry_step_i': self.current_step,
+            'entry_price': self.entry_price,
+            'entry_balance': entry_balance,
+            'predict_q': q_value,
+        })
+
+    def close_position(self, current_row):
+        self.balance += (self.position * current_row['close']) * (1-self.comission)
+        self.position = 0
+        self.trade_history[-1]['close_step_i'] = self.current_step
+        self.trade_history[-1]['close_price'] = current_row['close']
+        self.trade_history[-1]['close_balance'] = self.balance
 
     def step(self, action, q_value):
         """
@@ -50,35 +71,24 @@ class Environment:
         current_row = self.data.loc[self.current_step]
 
         close_position_flag = False
-        if action == 0:  # Open position
-            if self.position == 0:
-                entry_balance = self.balance
-                self.position = self.balance // current_row['close']
-                self.balance -= (current_row['close']*self.position) * (1 + self.comission)
-                self.entry_price = current_row['close']
-                self.trade_history.append({
-                    'entry_step_i': self.current_step,
-                    'entry_price': self.entry_price,
-                    'entry_balance': entry_balance,
-                    'predict_q': q_value,
-                })
-            #     reward += 0.05
-            # else:
-            #     reward += -0.05
 
-        elif action == 1:  # Close position
-            if self.position > 0:
-                self.balance += (self.position * current_row['close']) * (1-self.comission)
-                self.position = 0
-                self.trade_history[-1]['close_step_i'] = self.current_step
-                self.trade_history[-1]['close_price'] = current_row['close']
-                self.trade_history[-1]['close_balance'] = self.balance
+        # check on sl and tp
+        if len(self.trade_history) > 0:
+            if 'close_balance' not in self.trade_history[-1]: # last position is not closed
+                current_profit = current_row['close'] / self.trade_history[-1]['entry_price']
+                current_profit = (current_profit-1) * 100 # normalize to % of profit
+                if current_profit < self.sl:
+                    self.close_position(current_row)
+                    close_position_flag = True
+
+                elif current_profit > self.tp:
+                    self.close_position(current_row)
+                    close_position_flag = True
+
+        if action == 1:  # Close position
+            if (self.position > 0) & (not close_position_flag):
+                self.close_position(current_row)
                 close_position_flag = True
-                # reward += 0.05
-            # else:
-                # reward += -0.05
-        # else:
-            # reward -= 0.005  # Slight penalty to encourage actions
 
         if close_position_flag:
             # reward takes into account the commission
@@ -86,6 +96,10 @@ class Environment:
             entry_p = self.trade_history[-1]['entry_balance']
             deal_profit = 100 * (close_p - entry_p) / entry_p
             reward += deal_profit
+
+        if action == 0:  # Try to open new position after closing previous 
+            if self.position == 0:
+                self.open_position(current_row, q_value)
 
         self.current_step += 1
         self.done = self.current_step >= len(self.data) - 1

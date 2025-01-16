@@ -28,7 +28,7 @@ class Config:
     log_interval: int = 10
     data_path: str = '/home/nikolayz/Рабочий стол/RL_research/data/sber_1h_labeled.csv'
     model_path: str = 'saved_models/qnet/model'
-    test_name: str = 'rainbow_4_big_comission'
+    test_name: str = 'rainbow_4_bc_tpsl'
 
     max_buffer_size: int = 30_000
     batch_size: int = 1024
@@ -36,3 +36,5 @@ class Config:
     initial_balance: float = 10_000       
     window_size: int = 16
     memory_capacity: int = 10_000
+    tp: float = 1.5
+    sl: float = -1.5
