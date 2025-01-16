@@ -1,2 +1,2 @@
-Avg profit per deal: 0.081%
-Num deals: 446
+Avg profit per deal: 0.085%
+Num deals: 471

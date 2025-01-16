@@ -11,7 +11,7 @@ def train_dqn(agent, env, config, silent=False, use_best_model=False):
 
     best_model_state = None
     best_model_reward = -1e6    
-    
+    beta0 = config.beta
     for episode in range(config.num_episodes):
         state = env.reset()
         total_reward = 0
@@ -27,6 +27,7 @@ def train_dqn(agent, env, config, silent=False, use_best_model=False):
 
             agent.replay(config.device)
 
+        config.beta = beta0 * (2 - 0.99**episode)
         agent.update_target_network()
         agent.epsilon = max(agent.epsilon * agent.epsilon_decay, agent.epsilon_min)
         if episode % 10 == 0:
@@ -56,7 +57,7 @@ def train_dqn(agent, env, config, silent=False, use_best_model=False):
         agent.policy_net.load_state_dict(best_model_state)
         agent.target_net.load_state_dict(best_model_state)
 
-    return best_model_res_balance
+    return best_model_res_balance, agent
 
 
 def plot_actions(close_data, trade_history):

@@ -44,6 +44,7 @@ def print_results(profit, n_deals):
 
 config = Config()
 if __name__ == "__main__":
+    init_beta = config.beta
     trade_history = []
     train_pointer = config.train_size
     test_pointer = train_pointer + config.test_size
@@ -53,8 +54,11 @@ if __name__ == "__main__":
     actual_test_data = data.iloc[train_pointer:test_pointer].reset_index(drop=True)
     
     print('-'*30, '\n')
+
     while test_pointer < len(data):
         print(f'\nTest pointer: {test_pointer}')
+
+        config.beta = init_beta
         env = Environment(data=actual_train_data, config=config)
         agent = DQNAgent(config)
 
@@ -68,8 +72,8 @@ if __name__ == "__main__":
 
                 agent.remember(state, action, reward, next_state, done)
                 state = next_state
-        
-        train_result_balance = dqut.train_dqn(agent, env, config, silent=False, use_best_model=True)
+
+        train_result_balance, agent = dqut.train_dqn(agent, env, config, silent=True, use_best_model=True)
         dqut.evaluate_dqn(agent, env, actual_test_data, config, silent=False)
 
         actual_env_trade_history = env.trade_history
@@ -86,7 +90,6 @@ if __name__ == "__main__":
         actual_train_data = data.iloc[train_pointer-config.train_size:train_pointer].reset_index(drop=True)
         actual_test_data = data.iloc[train_pointer:test_pointer].reset_index(drop=True)
 
-    balance = 100_000
     profit = 0
     n_deals = 0
     for trade in trade_history:

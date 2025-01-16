@@ -203,8 +203,11 @@ class DQNAgent:
         self.batch_size = config.batch_size
         self.learning_rate = config.lr
 
-        self.policy_net = DQN(self.state_dim, self.action_dim, self.hidden_dim, self.num_atoms).to(config.device)
-        self.target_net = DQN(self.state_dim, self.action_dim, self.hidden_dim, self.num_atoms).to(config.device)
+        self.policy_net = DQN(self.state_dim, self.action_dim, self.hidden_dim)
+        self.target_net = DQN(self.state_dim, self.action_dim, self.hidden_dim)
+
+        self.policy_net.to(config.device).eval()
+        self.target_net.to(config.device).eval()
 
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
@@ -219,8 +222,9 @@ class DQNAgent:
         if (random.random() < self.epsilon) & (not evaluate):
             return random.randint(0, self.action_dim - 1), None
 
-        action = self.policy_net.get_action([state], device)
-        return action, None
+        with torch.no_grad():
+            q_values = self.policy_net([state], device)
+            return torch.argmax(q_values).item(), torch.max(q_values).item()
 
     def remember(self, state, action, reward, next_state, done):
         self.memory.enqueue((state, action, reward, next_state, done))
