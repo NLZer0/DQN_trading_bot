@@ -9,8 +9,8 @@ class Environment:
         self.initial_balance = config.initial_balance
         self.comission = config.comission
 
-        self.tp = config.tp
-        self.sl = config.sl
+        # self.tp = config.tp
+        # self.sl = config.sl
 
     def reset(self):
         self.trade_history = []
@@ -72,35 +72,34 @@ class Environment:
         current_row = self.data.loc[self.current_step]
 
         close_position_flag = False
-
-        # check on sl and tp
-        if len(self.trade_history) > 0:
-            if 'close_balance' not in self.trade_history[-1]: # last position is not closed
-                current_profit = current_row['close'] / self.trade_history[-1]['entry_price']
-                current_profit = (current_profit-1) * 100 # normalize to % of profit
-                if current_profit < self.sl:
-                    self.close_position(current_row)
-                    close_position_flag = True
-
-                elif current_profit > self.tp:
-                    self.close_position(current_row)
-                    close_position_flag = True
-
+        if action == 0:  # Try to open new position after closing previous 
+            if self.position == 0:
+                self.open_position(current_row, q_value)
         if action == 1:  # Close position
             if (self.position > 0) & (not close_position_flag):
                 self.close_position(current_row)
                 close_position_flag = True
+
+        # check on sl and tp
+        # if len(self.trade_history) > 0:
+        #     if 'close_balance' not in self.trade_history[-1]: # last position is not closed
+        #         current_profit = current_row['close'] / self.trade_history[-1]['entry_price']
+        #         current_profit = (current_profit-1) * 100 # normalize to % of profit
+        #         if current_profit < self.sl:
+        #             self.close_position(current_row)
+        #             close_position_flag = True
+
+        #         elif current_profit > self.tp:
+        #             self.close_position(current_row)
+        #             close_position_flag = True
 
         if close_position_flag:
             # reward takes into account the commission
             close_p = self.trade_history[-1]['close_balance']
             entry_p = self.trade_history[-1]['entry_balance']
             deal_profit = 100 * (close_p - entry_p) / entry_p
+            # deal_duration = self.trade_history[-1]['close_step_i'] - self.trade_history[-1]['entry_step_i']
             reward += deal_profit
-
-        if action == 0:  # Try to open new position after closing previous 
-            if self.position == 0:
-                self.open_position(current_row, q_value)
 
         self.current_step += 1
         self.done = self.current_step >= len(self.data) - 1
