@@ -42,6 +42,19 @@ def print_results(profit, n_deals):
     print(f'Num deals: {n_deals}')
 
 
+def fill_memory(agent: DQNAgent, env: Environment):
+    while len(agent.memory) < config.memory_capacity:
+        state = env.reset()
+        done = False
+        while not done:
+            action, q_value = agent.act(state, config.device)
+            next_state, reward, done = env.step(action, q_value)
+
+            agent.remember(state, action, reward, next_state, done)
+            state = next_state
+    return agent, env
+
+
 config = Config()
 if __name__ == "__main__":
     init_beta = config.beta
@@ -61,18 +74,8 @@ if __name__ == "__main__":
         config.beta = init_beta
         env = Environment(data=actual_train_data, config=config)
         agent = DQNAgent(config)
-
-        while len(agent.memory) < config.memory_capacity:
-            state = env.reset()
-            total_reward = 0
-            done = False
-            while not done:
-                action, q_value = agent.act(state, config.device)
-                next_state, reward, done = env.step(action, q_value)
-
-                agent.remember(state, action, reward, next_state, done)
-                state = next_state
-
+        agent, env = fill_memory(agent, env)
+       
         train_result_balance, agent = dqut.train_dqn(agent, env, config, silent=True, use_best_model=True)
         dqut.evaluate_dqn(agent, env, actual_test_data, config, silent=False)
 
@@ -87,6 +90,7 @@ if __name__ == "__main__":
         train_pointer += config.step
         test_pointer += config.step
 
+        # Shift train and test data
         actual_train_data = data.iloc[train_pointer-config.train_size:train_pointer].reset_index(drop=True)
         actual_test_data = data.iloc[train_pointer:test_pointer].reset_index(drop=True)
 
