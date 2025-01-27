@@ -4,8 +4,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-# Training loop
 def train_dqn(agent, env, config, silent=False, use_best_model=False):
+    """Trains a DQN agent on the given environment using the provided configuration. 
+    The function returns the best model balance and the trained DQN agent.
+    
+    Arguments:
+        agent (DQNAgent): The DQN agent to be trained.
+        env (TradingEnvironment): The trading environment to train on.
+        config (dict): A dictionary of configuration parameters for training.
+        silent (bool): Whether to print training information or not.
+        use_best_model (bool): Whether to load the best model at the end of training.
+    
+    Returns:
+        tuple(float, DQNAgent): The best model balance and the trained DQN agent.
+    """
     agent.policy_net.train().to(config.device)
     agent.target_net.train().to(config.device)
 
@@ -30,7 +42,7 @@ def train_dqn(agent, env, config, silent=False, use_best_model=False):
         config.beta = beta0 * (2 - 0.99**episode)
         agent.update_target_network()
         agent.epsilon = max(agent.epsilon * agent.epsilon_decay, agent.epsilon_min)
-        if episode % 10 == 0:
+        if episode % config.log_interval == 0:
             config.lr *= 0.99
             agent.change_lr(config.lr)
             result_balance = env.balance + env.position*env.data.at[env.current_step, 'close']

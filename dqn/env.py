@@ -47,7 +47,8 @@ class Environment:
 
     def open_position(self, current_row, q_value):
         entry_balance = self.balance
-        self.position = self.balance // current_row['close']
+        self.position = (self.balance / current_row['close']) * 0.9
+        assert self.position != 0, 'cant buy any currency'
         self.balance -= (current_row['close']*self.position) * (1 + self.comission)
         self.entry_price = current_row['close']
         self.trade_history.append({

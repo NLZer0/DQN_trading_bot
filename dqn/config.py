@@ -25,17 +25,17 @@ class Config:
     device: str = 'cuda'     
     
     silent: bool = False
-    num_episodes: int = 30
-    log_interval: int = 10
-    data_path: str = '/home/nikolayz/Рабочий стол/RL_research/data/sber_1h_labeled.csv'
+    num_episodes: int = 50
+    log_interval: int = 5
+    data_path: str = '/home/nikolayz/Рабочий стол/RL_research/data/btc_labeled.csv'
     model_path: str = 'saved_models/qnet/model'
-    test_name: str = 'rainbow_4_bc16'
+    test_name: str = 'rainbow_4_bc32_btc_big-train-test'
 
     max_buffer_size: int = 10_000
     batch_size: int = 1024
     comission: float = 0.002
-    initial_balance: float = 10_000       
-    window_size: int = 16
+    initial_balance: float = 1_000_000       
+    window_size: int = 32
     memory_capacity: int = 10_000
     # tp: float = 1.5
     # sl: float = -1.5
