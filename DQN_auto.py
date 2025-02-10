@@ -60,52 +60,55 @@ config = Config()
 if __name__ == "__main__":
     init_beta = config.beta
     trade_history = []
-    # train_pointer = config.train_size
-    # test_pointer = train_pointer + config.test_size
+    train_pointer = config.train_size
+    test_pointer = train_pointer + config.test_size
     
-    data = preprocess_data(load_data(n=20_000))
-    # actual_train_data = data.iloc[:train_pointer].reset_index(drop=True)
-    # actual_test_data = data.iloc[train_pointer:test_pointer].reset_index(drop=True)
+    data = preprocess_data(load_data(n=5_000))
+    actual_train_data = data.iloc[:train_pointer].reset_index(drop=True)
+    actual_test_data = data.iloc[train_pointer:test_pointer].reset_index(drop=True)
     
     print('-'*30, '\n')
 
-    train_data = data.iloc[:10_000]
-    test_data = data.iloc[10_000:].reset_index(drop=True)
+    # train_data = data.iloc[:5000]
+    # test_data = data.iloc[5000:].reset_index(drop=True)
 
     config.beta = init_beta
-    env = Environment(data=train_data, config=config)
+    env = Environment(data=actual_train_data, config=config)
     agent = DQNAgent(config)
-    agent, env = fill_memory(agent, env)
     
-    train_result_balance, agent = dqut.train_dqn(agent, env, config, silent=False, use_best_model=True)
-    dqut.evaluate_dqn(agent, env, test_data, config, silent=False)
-    trade_history = env.trade_history
+    agent, env = fill_memory(agent, env)
+    # train_result_balance, agent = dqut.train_dqn(agent, env, config, silent=False, use_best_model=False)
+    # agent.save_model('saved_models/btc_short_big.pt')
 
-    # while test_pointer < len(data):
-    #     print(f'\nTest pointer: {test_pointer}')
+    # agent.load_model('saved_models/btc_short_big.pt')
+    # dqut.evaluate_dqn(agent, env, test_data, config, silent=False)
+    # trade_history = env.trade_history
 
-    #     config.beta = init_beta
-    #     env = Environment(data=actual_train_data, config=config)
-    #     agent = DQNAgent(config)
-    #     agent, env = fill_memory(agent, env)
+    while test_pointer < len(data):
+        print(f'\nTest pointer: {test_pointer}')
+
+        config.beta = init_beta
+        env = Environment(data=actual_train_data, config=config)
+        agent = DQNAgent(config)
+        agent, env = fill_memory(agent, env)
        
-    #     train_result_balance, agent = dqut.train_dqn(agent, env, config, silent=True, use_best_model=True)
-    #     dqut.evaluate_dqn(agent, env, actual_test_data, config, silent=False)
+        train_result_balance, agent = dqut.train_dqn(agent, env, config, silent=True, use_best_model=True)
+        dqut.evaluate_dqn(agent, env, actual_test_data, config, silent=False)
 
-    #     actual_env_trade_history = env.trade_history
-    #     for it in actual_env_trade_history:
-    #         it['entry_step_i'] += train_pointer
-    #         if 'close_step_i' in it:
-    #             it['close_step_i'] += train_pointer
-    #         it['train_result_balance'] = train_result_balance
+        actual_env_trade_history = env.trade_history
+        for it in actual_env_trade_history:
+            it['entry_step_i'] += train_pointer
+            if 'close_step_i' in it:
+                it['close_step_i'] += train_pointer
+            it['train_result_balance'] = train_result_balance
 
-    #     trade_history += actual_env_trade_history
-    #     train_pointer += config.step
-    #     test_pointer += config.step
+        trade_history += actual_env_trade_history
+        train_pointer += config.step
+        test_pointer += config.step
 
-    #     # Shift train and test data
-    #     actual_train_data = data.iloc[train_pointer-config.train_size:train_pointer].reset_index(drop=True)
-    #     actual_test_data = data.iloc[train_pointer:test_pointer].reset_index(drop=True)
+        # Shift train and test data
+        actual_train_data = data.iloc[train_pointer-config.train_size:train_pointer].reset_index(drop=True)
+        actual_test_data = data.iloc[train_pointer:test_pointer].reset_index(drop=True)
 
     profit = 0
     n_deals = 0
@@ -115,7 +118,11 @@ if __name__ == "__main__":
             n_deals += 1
         except:
             continue
-    profit /= n_deals
+        
+    if n_deals == 0:
+        profit = 0
+    else:
+        profit /= n_deals
 
     print_results(profit, len(trade_history))
     save_results(profit, len(trade_history), test_name=config.test_name)
