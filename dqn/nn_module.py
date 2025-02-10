@@ -28,12 +28,14 @@ class NoisyLayer(nn.Module):
         self.reset_noise() # Initialize noise for exploration
 
     def reset_parameters(self):
-        """ Initialize weight and bias parameters using uniform distribution  """
-        mu_range = 1 / np.sqrt(self.in_features)
-        self.weight_mu.data.uniform_(-mu_range, mu_range)
-        self.weight_sigma.data.fill_(self.sigma_init / np.sqrt(self.in_features))
-        self.bias_mu.data.uniform_(-mu_range, mu_range)
-        self.bias_sigma.data.fill_(self.sigma_init / np.sqrt(self.out_features))
+        """ Initialize weight and bias parameters using uniform distribution """
+        with torch.no_grad():
+            mu_range = 1 / np.sqrt(self.in_features)
+            self.weight_mu.uniform_(-mu_range, mu_range)
+            self.weight_sigma.fill_(self.sigma_init / np.sqrt(self.in_features))
+            self.bias_mu.uniform_(-mu_range, mu_range)
+            self.bias_sigma.fill_(self.sigma_init / np.sqrt(self.out_features))
+
 
     def reset_noise(self):
         """  Reset the noise for both weights and biases using a factorized noise approach """
@@ -54,7 +56,8 @@ class NoisyLayer(nn.Module):
 
     def _scale_noise(self, size):
         # Generate noise using a Gaussian distribution and transform it
-        x = torch.randn(size)
+        device = self.weight_mu.device
+        x = torch.randn(size, device=device)
         return x.sign().mul_(x.abs().sqrt_())
     
 
@@ -77,10 +80,10 @@ class DQN(nn.Module):
         self.fc = nn.Sequential(
             NoisyLayer(hidden_dim*2, hidden_dim),
             nn.ReLU(),
-            NoisyLayer(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            NoisyLayer(hidden_dim, hidden_dim),
-            nn.ReLU(),
+            # NoisyLayer(hidden_dim, hidden_dim),
+            # nn.ReLU(),
+            # NoisyLayer(hidden_dim, hidden_dim),
+            # nn.ReLU(),
         )
         self.V = nn.Linear(hidden_dim, 1)
         self.A = nn.Linear(hidden_dim, output_dim)
@@ -127,8 +130,6 @@ class ProbabilityQueue:
             self.dequeue()
 
         self.probabilities.append(probability)
-        if probability != probability:
-            print('here')
         self.queue.append(item)
         self.size += 1
 
@@ -257,3 +258,14 @@ class DQNAgent:
         for param in self.target_net.parameters():
             param.requires_grad = False
 
+    def save_model(self, path: str):
+        torch.save({
+            'model_state_dict': self.policy_net.state_dict(),
+            'optim_state_dict': self.optimizer.state_dict(),
+        }, path)
+
+    def load_model(self, path: str):
+        checkpoint = torch.load(path)
+        self.policy_net.load_state_dict(checkpoint['model_state_dict'])
+        self.target_net.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optim_state_dict'])
