@@ -108,11 +108,19 @@ def evaluate_dqn(agent, env, data, config, silent=False):
         env.trade_history[-1]['close_step_i'] = env.current_step
 
     if not silent:
-        try:
-            trade_profits = [100*(it['close_price']-it['entry_price']) / it['close_price'] for it in env.trade_history]
+        trade_profits = []
+        for deal in env.trade_history:
+            try:
+                if deal['position_type'] == 'long':
+                    trade_profits.append(100 * (deal['close_price'] - deal['entry_price']) / deal['entry_price'])
+                else:
+                    trade_profits.append(100 * (deal['entry_price'] - deal['close_price']) / deal['entry_price'])
+            except KeyError:
+                continue
+        
+        if len(trade_profits) > 0:
             avg_deal_profit = sum(trade_profits) / len(trade_profits)
-        except: 
-            trade_profits = 0
+        else:
             avg_deal_profit = 0
 
         print(f'Evaluate')
