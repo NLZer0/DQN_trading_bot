@@ -27,6 +27,8 @@ class Environment:
         current_profit = 0
         if self.position > 0:
             current_profit = 100 * (self.data.at[self.current_step, 'close']-self.entry_price) / self.entry_price
+        elif self.position < 0:
+            current_profit = 100 * (self.entry_price - self.data.at[self.current_step, 'close']) / self.entry_price
 
         state = [
             torch.FloatTensor(row
@@ -129,6 +131,9 @@ class Environment:
 
         self.current_step += 1
         self.done = self.current_step >= len(self.data) - 1
+
+        if self.done and self.position != 0:
+            self.close_position(current_row)
 
         next_state = self._get_state()
         return next_state, reward, self.done
