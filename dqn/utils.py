@@ -99,13 +99,11 @@ def evaluate_dqn(agent, env, data, config, silent=False):
 
     while not done:
         action, q_value = agent.act(state, config.device, evaluate=True)
-        # if (q_value < 5) & (action == 0):
-        #     action = 2
         state, reward, done = env.step(action, q_value)
         actions.append(action)
 
     result_balance = env.balance + env.position*env.data.at[env.current_step, 'close']
-    if env.position > 0:
+    if abs(env.position > 0):
         env.trade_history[-1]['close_price'] = env.data.close.values[-1]
         env.trade_history[-1]['close_step_i'] = env.current_step
 
@@ -122,7 +120,6 @@ def evaluate_dqn(agent, env, data, config, silent=False):
         print(f'\tNum deals: {len(env.trade_history)}')
         print(f'\tResult balance: {result_balance:.3f}')
         print(f'\tAvg deal profit: {avg_deal_profit:.3f}')
-        # plot_actions(env.data['close'], env.trade_history)
 
 
 def get_diff_df(data, cols):
