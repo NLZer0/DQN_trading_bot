@@ -7,8 +7,8 @@ class Environment:
         self.data = data
         self.window_size = config.window_size
         self.initial_balance = config.initial_balance
-        self.comission = config.comission
-
+        self.commission = config.comission
+        # self.is_short = config.is_short
         # self.tp = config.tp
         # self.sl = config.sl
 
@@ -45,26 +45,41 @@ class Environment:
     def set_data(self, data):
         self.data = data
 
-    def open_position(self, current_row, q_value):
+    def open_position(self, current_row, q_value, is_short):
         entry_balance = self.balance
-        self.position = (self.balance / current_row['close']) * 0.9
-        assert self.position != 0, 'cant buy any currency'
-        self.balance -= (current_row['close']*self.position) * (1 + self.comission)
+        if not is_short:
+            # Открываем лонг: покупаем активы
+            self.position = (self.balance / current_row['close']) * 0.9
+            self.balance -= (current_row['close'] * self.position) * (1 + self.commission)
+        else:
+            # Открываем шорт: продаем активы (занимаем и продаем)
+            self.position = - (self.balance / current_row['close']) * 0.9  # Отрицательное значение для шорта
+            self.balance += (current_row['close'] * abs(self.position)) * (1 - self.commission)
+        assert abs(self.position) > 0, 'Cannot open position with zero quantity'
         self.entry_price = current_row['close']
         self.trade_history.append({
             'entry_step_i': self.current_step,
             'entry_price': self.entry_price,
             'entry_balance': entry_balance,
             'predict_q': q_value,
+            'position_type': 'short' if is_short else 'long'
         })
 
     def close_position(self, current_row):
-        self.balance += (self.position * current_row['close']) * (1-self.comission)
+        assert self.position != 0, 'position has not opened'
+        if self.position > 0:
+            # Закрываем лонг: продаем активы
+            self.balance += (self.position * current_row['close']) * (1 - self.commission)
+        else:
+            # Закрываем шорт: покупаем активы для возврата
+            cost = abs(self.position) * current_row['close']
+            self.balance -= cost * (1 + self.commission)
         self.position = 0
         self.trade_history[-1]['close_step_i'] = self.current_step
         self.trade_history[-1]['close_price'] = current_row['close']
         self.trade_history[-1]['close_balance'] = self.balance
 
+    
     def step(self, action, q_value):
         """
         action: 0 - Open position , 1 - Close position, 2 - Do nothing
@@ -72,14 +87,24 @@ class Environment:
         reward = 0
         current_row = self.data.loc[self.current_step]
 
-        close_position_flag = False
-        if action == 0:  # Try to open new position after closing previous 
-            if self.position == 0:
-                self.open_position(current_row, q_value)
-        if action == 1:  # Close position
-            if (self.position > 0) & (not close_position_flag):
+        deal = None
+        if action == 0:  # Open new long position and try to close short
+            if self.position < 0:
                 self.close_position(current_row)
-                close_position_flag = True
+                deal = self.trade_history[-1]
+
+            # open long position after close previous short
+            if self.position == 0:
+                self.open_position(current_row, q_value, is_short=False)
+
+        elif action == 1: # Open new short position and try to close long  
+            if self.position > 0:
+                self.close_position(current_row)
+                deal = self.trade_history[-1]
+            
+            # open short position after close previous long
+            if self.position == 0:
+                self.open_position(current_row, q_value, is_short=True)
 
         # check on sl and tp
         # if len(self.trade_history) > 0:
@@ -94,10 +119,10 @@ class Environment:
         #             self.close_position(current_row)
         #             close_position_flag = True
 
-        if close_position_flag:
+        if deal is not None:
             # reward takes into account the commission
-            close_p = self.trade_history[-1]['close_balance']
-            entry_p = self.trade_history[-1]['entry_balance']
+            close_p = deal['close_balance']
+            entry_p = deal['entry_balance']
             deal_profit = 100 * (close_p - entry_p) / entry_p
             # deal_duration = self.trade_history[-1]['close_step_i'] - self.trade_history[-1]['entry_step_i']
             reward += deal_profit
