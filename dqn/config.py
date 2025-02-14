@@ -10,7 +10,7 @@ class Config:
     test_size: int = 168
     step: int = 168
     
-    input_size: int = 8 # [open, close, high, low, position, current_profit]
+    input_size: int = 6 # [open, close, high, low, position, current_profit]
     action_size: int = 3  # [купить, продать, удержать]
     hidden_size: int = 128
     num_atoms: int = 51
@@ -23,14 +23,16 @@ class Config:
     lr: float = 1e-3 # скорость обучения
     # epochs: int = 10  # количество эпох для обновления политики
     device: str = 'cuda'     
-    
+    tp = 0.02
+    sl = 0.02
+
     silent: bool = False
-    num_episodes: int = 10
-    log_interval: int = 1
+    num_episodes: int = 30
+    log_interval: int = 2
     is_short: bool = True
-    data_path: str = '/home/nikolayz/Рабочий стол/RL_research/data/btc_labeled.csv'
+    data_path: str = 'data/moex_1h.csv'
     model_path: str = 'saved_models/qnet/model'
-    test_name: str = 'rainbow_4_bc32_btc_sw-long-short'
+    test_name: str = 'rainbow_4_bc32_moex_sw-short'
 
     max_buffer_size: int = 10_000
     batch_size: int = 1024

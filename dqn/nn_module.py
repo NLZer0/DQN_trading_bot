@@ -80,10 +80,10 @@ class DQN(nn.Module):
         self.fc = nn.Sequential(
             NoisyLayer(hidden_dim*2, hidden_dim),
             nn.ReLU(),
-            # NoisyLayer(hidden_dim, hidden_dim),
-            # nn.ReLU(),
-            # NoisyLayer(hidden_dim, hidden_dim),
-            # nn.ReLU(),
+            NoisyLayer(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            NoisyLayer(hidden_dim, hidden_dim),
+            nn.ReLU(),
         )
         self.V = nn.Linear(hidden_dim, 1)
         self.A = nn.Linear(hidden_dim, output_dim)

@@ -63,7 +63,7 @@ if __name__ == "__main__":
     train_pointer = config.train_size
     test_pointer = train_pointer + config.test_size
     
-    data = preprocess_data(load_data(n=5_000))
+    data = preprocess_data(load_data(n=10_000))
     actual_train_data = data.iloc[:train_pointer].reset_index(drop=True)
     actual_test_data = data.iloc[train_pointer:test_pointer].reset_index(drop=True)
     
@@ -94,6 +94,7 @@ if __name__ == "__main__":
        
         train_result_balance, agent = dqut.train_dqn(agent, env, config, silent=True, use_best_model=True)
         dqut.evaluate_dqn(agent, env, actual_test_data, config, silent=False)
+        print(f'\t{train_result_balance}')
 
         actual_env_trade_history = env.trade_history
         for it in actual_env_trade_history:

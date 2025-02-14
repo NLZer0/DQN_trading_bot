@@ -8,9 +8,8 @@ class Environment:
         self.window_size = config.window_size
         self.initial_balance = config.initial_balance
         self.commission = config.comission
-        # self.is_short = config.is_short
-        # self.tp = config.tp
-        # self.sl = config.sl
+        self.tp = config.tp
+        self.sl = config.sl
 
     def reset(self):
         self.trade_history = []
@@ -37,13 +36,28 @@ class Environment:
                     'open_ema_diff',
                     'high_ema_diff',
                     'low_ema_diff',
-                    'dn_signal',
-                    'up_signal'
                 ]].values), 
             torch.FloatTensor([int(self.position > 0), current_profit]),
         ]
         return state
     
+    def _check_risk(self, current_row):
+        if self.position > 0:
+            max_price_diff = current_row['high'] - self.entry_price
+            min_price_diff = current_row['low'] - self.entry_price
+        else:
+            max_price_diff = self.entry_price - current_row['low']
+            min_price_diff = self.entry_price - current_row['high']
+            
+        if min_price_diff <= -self.sl * self.entry_price:
+            self.close_position(current_row)
+            return True
+        elif max_price_diff >= self.tp * self.entry_price:
+            self.close_position(current_row)
+            return True
+        
+        return False
+            
     def set_data(self, data):
         self.data = data
 
@@ -96,30 +110,22 @@ class Environment:
                 deal = self.trade_history[-1]
 
             # open long position after close previous short
-            if self.position == 0:
-                self.open_position(current_row, q_value, is_short=False)
+            # if self.position == 0:
+                # self.open_position(current_row, q_value, is_short=False)
 
         elif action == 1: # Open new short position and try to close long  
-            if self.position > 0:
-                self.close_position(current_row)
-                deal = self.trade_history[-1]
-            
+            # if self.position > 0:
+                # self.close_position(current_row)
+                # deal = self.trade_history[-1]
+
             # open short position after close previous long
             if self.position == 0:
                 self.open_position(current_row, q_value, is_short=True)
 
-        # check on sl and tp
-        # if len(self.trade_history) > 0:
-        #     if 'close_balance' not in self.trade_history[-1]: # last position is not closed
-        #         current_profit = current_row['close'] / self.trade_history[-1]['entry_price']
-        #         current_profit = (current_profit-1) * 100 # normalize to % of profit
-        #         if current_profit < self.sl:
-        #             self.close_position(current_row)
-        #             close_position_flag = True
-
-        #         elif current_profit > self.tp:
-        #             self.close_position(current_row)
-        #             close_position_flag = True
+        if self.position != 0:
+            deal_flag = self._check_risk(current_row)
+            if deal_flag:
+                deal = self.trade_history[-1]
 
         if deal is not None:
             # reward takes into account the commission
