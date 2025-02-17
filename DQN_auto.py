@@ -5,7 +5,7 @@ import pandas as pd
 import dqn.utils as dqut 
 from dqn.nn_module import DQNAgent
 from dqn.env import Environment 
-from dqn.config import Config
+from config import Config
 
 
 def load_data(n: int = 5_000):

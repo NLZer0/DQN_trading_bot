@@ -6,7 +6,7 @@ from config import Config
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-mp', '--model_path', help='The path to save the model')
+parser.add_argument('-mp', '--model_path', type=str, help='The path to save the model')
 args = parser.parse_args()
 
 config = Config()

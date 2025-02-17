@@ -19,7 +19,7 @@ class Environment:
         self.ticker = config.ticker
         self.interval = config.interval
         self.ema_span = config.ema_span
-
+        self.last_row = None
         self.done = False
         self.position = 0
         self.entry_price = 0
@@ -55,8 +55,10 @@ class Environment:
             row = self.data.loc[self.current_step-self.window_size+1:self.current_step]
         else:
             row = self._get_last_candle()
-
-        current_price = row.iloc[-1]['close']
+            
+        self.last_row = row.iloc[-1]
+        current_price = self.last_row['close']
+        
         current_profit = 0
         if self.position > 0:
             current_profit = 100 * (current_price - self.entry_price) / self.entry_price

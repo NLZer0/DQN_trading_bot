@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 @dataclass
 class Config:
-    train_size: int = 24*14 # size in hours
+    train_size: int = 24*365 # size in hours
     eval_size: int = int(24*30.5) # size in hours
     interval: int = '60' # api using interval in minutes
     ticker: str = 'SBER'
