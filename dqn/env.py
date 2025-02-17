@@ -1,15 +1,31 @@
 import math
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
 import torch
+from dqn.utils import get_candles, preprocess_data
+from config import Config
 
 
 class Environment:
-    def __init__(self, data, config):
+    def __init__(self, data, config: Config, is_stream: bool = False):
+        self.is_stream = is_stream
         self.data = data
         self.window_size = config.window_size
         self.initial_balance = config.initial_balance
         self.commission = config.comission
         self.tp = config.tp
         self.sl = config.sl
+        self.ticker = config.ticker
+        self.interval = config.interval
+        self.ema_span = config.ema_span
+
+        self.done = False
+        self.position = 0
+        self.entry_price = 0
+        self.trade_history = []
+        self.balance = self.initial_balance
+        self.current_step = self.window_size
 
     def reset(self):
         self.trade_history = []
@@ -20,14 +36,32 @@ class Environment:
         self.entry_price = 0
         return self._get_state()
 
+    def _get_last_candle(self):
+        start_dt = datetime.now(ZoneInfo('Europe/Moscow'))
+        start_dt -= timedelta(hours=self.window_size*5)
+        start_dt = start_dt.strftime("%Y-%m-%d %H:%M:%S")
+        last_df = preprocess_data(
+            get_candles(
+                ticker=self.ticker,
+                interval=self.interval,
+                start=start_dt
+            ),
+            ema_span=self.ema_span
+        )
+        return last_df.iloc[-self.window_size:]
+        
     def _get_state(self):
-        row = self.data.loc[self.current_step-self.window_size+1:self.current_step]
+        if not self.is_stream:
+            row = self.data.loc[self.current_step-self.window_size+1:self.current_step]
+        else:
+            row = self._get_last_candle()
 
+        current_price = row.iloc[-1]['close']
         current_profit = 0
         if self.position > 0:
-            current_profit = 100 * (self.data.at[self.current_step, 'close']-self.entry_price) / self.entry_price
+            current_profit = 100 * (current_price - self.entry_price) / self.entry_price
         elif self.position < 0:
-            current_profit = 100 * (self.entry_price - self.data.at[self.current_step, 'close']) / self.entry_price
+            current_profit = 100 * (self.entry_price - current_price) / self.entry_price
 
         state = [
             torch.FloatTensor(row
@@ -36,8 +70,8 @@ class Environment:
                     'open_ema_diff',
                     'high_ema_diff',
                     'low_ema_diff',
-                ]].values), 
-            torch.FloatTensor([int(self.position > 0), current_profit]),
+                ]].values.astype(float)), 
+            torch.FloatTensor([float(self.position > 0), current_profit]),
         ]
         return state
     
@@ -101,7 +135,10 @@ class Environment:
         action: 0 - Open position , 1 - Close position, 2 - Do nothing
         """
         reward = 0
-        current_row = self.data.loc[self.current_step]
+        if self.is_stream:
+            current_row = self._get_last_candle().iloc[-1]
+        else:
+            current_row = self.data.loc[self.current_step]
 
         deal = None
         if action == 0:  # Open new long position and try to close short
@@ -135,11 +172,14 @@ class Environment:
             # deal_duration = self.trade_history[-1]['close_step_i'] - self.trade_history[-1]['entry_step_i']
             reward += deal_profit
 
+        if self.is_stream:
+            return None, reward, None
+
         self.current_step += 1
         self.done = self.current_step >= len(self.data) - 1
 
         if self.done and self.position != 0:
             self.close_position(current_row)
-
+            
         next_state = self._get_state()
         return next_state, reward, self.done
