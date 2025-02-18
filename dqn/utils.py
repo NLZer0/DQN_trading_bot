@@ -37,6 +37,7 @@ def get_first_train_dt(train_size: int = 24*365):
 
 
 def get_train_df(config: Config):
+    print('Loading train data...')
     train_start_dt = get_first_train_dt(train_size=config.train_size)
     train_df = get_candles(
         ticker=config.ticker,
@@ -59,6 +60,7 @@ def get_last_candle(config: Config):
     
 
 def preprocess_data(dataframe: pd.DataFrame, ema_span: int = 5):
+    print('Preprocess train data...')
     dataframe = (dataframe
         .assign(close_ema = lambda _df: _df.close.ewm(span=ema_span, adjust=False).mean())
         .assign(open_ema = lambda _df: _df.open.ewm(span=ema_span, adjust=False).mean())
@@ -82,6 +84,7 @@ def get_candles(ticker: str, interval: str = '60', start: int = None):
 
 
 def fill_memory(agent: DQNAgent, env, config: Config):
+    print('Filling model memory...')
     while len(agent.memory) < config.memory_capacity:
         state = env.reset()
         done = False
@@ -108,6 +111,7 @@ def train_dqn(agent, env, config, silent: bool = False, use_best_model: bool = F
     Returns:
         tuple(float, DQNAgent): The best model balance and the trained DQN agent.
     """
+    print('Training model...')
     agent.policy_net.train().to(config.device)
     agent.target_net.train().to(config.device)
 

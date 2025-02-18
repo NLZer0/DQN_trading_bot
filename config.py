@@ -30,5 +30,5 @@ class Config:
     batch_size: int = 1024
     comission: float = 0.001
     initial_balance: float = 1_000_000
-    window_size: int = 32
+    window_size: int = 24*5
     memory_capacity: int = 10_000
