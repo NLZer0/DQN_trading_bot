@@ -29,7 +29,7 @@ if __name__ == '__main__':
     last_hour = datetime.now().hour
     while True:
         if datetime.now().hour != last_hour:
-            print('Next iter')
+            print(datetime.now())
             last_hour = datetime.now().hour
 
             state = env._get_state()
