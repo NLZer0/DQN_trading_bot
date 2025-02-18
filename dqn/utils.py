@@ -36,9 +36,11 @@ def get_first_train_dt(train_size: int = 24*365):
     return first_train_dt.strftime("%Y-%m-%d %H:%M:%S")
 
 
-def get_train_df(config: Config):
+def get_train_df(config: Config, train_start_dt: str = None):
     print('Loading train data...')
-    train_start_dt = get_first_train_dt(train_size=config.train_size)
+    if train_start_dt is None:
+        train_start_dt = get_first_train_dt(train_size=config.train_size)
+        
     train_df = get_candles(
         ticker=config.ticker,
         interval=config.interval,
@@ -83,8 +85,9 @@ def get_candles(ticker: str, interval: str = '60', start: int = None):
         )
 
 
-def fill_memory(agent: DQNAgent, env, config: Config):
-    print('Filling model memory...')
+def fill_memory(agent: DQNAgent, env, config: Config, silent: bool = False):
+    if not silent:
+        print('Filling model memory...')
     while len(agent.memory) < config.memory_capacity:
         state = env.reset()
         done = False
@@ -111,7 +114,9 @@ def train_dqn(agent, env, config, silent: bool = False, use_best_model: bool = F
     Returns:
         tuple(float, DQNAgent): The best model balance and the trained DQN agent.
     """
-    print('Training model...')
+    if not silent:
+        print('Training model...')
+        
     agent.policy_net.train().to(config.device)
     agent.target_net.train().to(config.device)
 
